@@ -1,0 +1,95 @@
+- 
+  ------  Prodlot Quality Control on Production without Tests  ------
+- 
+  In order to test functionality of set Quality Control Tests to Production
+  Lots in Production...
+
+-
+  I create the Production Order for Product without Quality Control
+- 
+  !record {model: mrp.production, id: production_wo_qc}:
+    product_id: product_wo_qc0
+    product_uom: product.product_uom_unit
+    product_qty: 1.0
+    bom_id: mrp_bom_product_wo_qc
+    location_src_id: stock.stock_location_stock
+    location_dest_id: stock.stock_location_stock
+
+-
+  I will Confirm the production
+-
+  !workflow {model: mrp.production, action: button_confirm, ref: production_wo_qc}
+
+- 
+  Checking the Production is in 'Confirmed' state
+-
+  !assert {model: mrp.production, id: production_wo_qc, string: The production without Quality Control is not in the expected 'Confirmed' state!}:
+    - state == 'confirmed'
+
+-
+  I will force de availability of Picking lines
+-
+  !function {model: stock.picking, name: force_assign}:
+    - eval: "[obj(ref('production_wo_qc')).picking_id.id]"
+      model: mrp.production
+
+- 
+  Checking the internal Picking is in 'done' state
+-
+  !python {model: mrp.production}: |
+    production = self.browse(cr, uid, ref('production_wo_qc'), context)
+    picking = production.picking_id
+    assert picking.state == 'done', "The picking of Production is not in " \
+        "the expected 'Done' state! It's state is '%s'" % picking.state
+
+-
+  Checking the Production is in 'ready' state
+-
+  !assert {model: mrp.production, id: production_wo_qc, string: The production without Quality Control is not in the expected 'Ready' state!}:
+    - state == 'ready'
+
+-
+  I will Start the production
+-
+  !workflow {model: mrp.production, action: button_produce, ref: production_wo_qc}
+
+-
+  I will finalize the Production using the function 'action_produce' like
+  User's wizard
+-
+  !function {model: mrp.production, name: action_produce}:
+    - eval: "ref('production_wo_qc')"
+    - 1.0
+    - 'consume_produce'
+
+- 
+  Checking the Production is in 'Done' state
+-
+  !assert {model: mrp.production, id: production_wo_qc, string: The production is not in the expected 'Done' state!}:
+    - state == 'done'
+
+- 
+  Checking the 'Created Moves' of Production without Quality Control has
+  assigned Production lot and they are Active and in 'Valid' state
+-
+  !python {model: mrp.production}: |
+    production = self.browse(cr, uid, ref('production_wo_qc'), context)
+    for created_move in production.move_created_ids2:
+      assert created_move.prodlot_id, "The Created Move %s doesn't have " \
+          "Production Lot (%s)" % (created_move.name, 
+          str(created_move.prodlot_id))
+      
+      assert created_move.prodlot_id.active, \
+          "The Lot of Created Move %s is not active" % created_move.name
+      
+      assert created_move.prodlot_id.state == 'valid', \
+          "The Lot of Created Move %s is not in the expected 'Valid' " \
+          "state: %s" % (created_move.name, created_move.state)
+
+-
+  ------  Prodlot Quality Control on Production without Tests END OK  ------
+-
+  !python {model: stock.picking}: |
+    print "THE END"
+
+    

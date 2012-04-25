@@ -1,0 +1,140 @@
+- 
+  ------  Prodlot Quality Control on Production with 1 Test  ------
+- 
+  In order to test functionality of set Quality Control Tests to Production
+  Lots in Production...
+
+-
+  I create the Production Order for Product with 2 Test Trigger
+- 
+  !record {model: mrp.production, id: production_w_2tests}:
+    product_id: product_w_2qctest0
+    product_uom: product.product_uom_unit
+    product_qty: 1.0
+    bom_id: mrp_bom_product_w_2qctest
+    location_src_id: stock.stock_location_stock
+    location_dest_id: stock.stock_location_stock
+
+-
+  I will Confirm the production
+-
+  !workflow {model: mrp.production, action: button_confirm, ref: production_w_2tests}
+
+-
+  I will force de availability of Picking lines
+-
+  !function {model: stock.picking, name: force_assign}:
+    - eval: "[obj(ref('production_w_2tests')).picking_id.id]"
+      model: mrp.production
+
+- 
+  Checking the internal Picking is in 'done' state
+-
+  !python {model: mrp.production}: |
+    production = self.browse(cr, uid, ref('production_w_2tests'), context)
+    picking = production.picking_id
+    assert picking.state == 'done', "The picking of Production is not in " \
+        "the expected 'Done' state! It's state is '%s'" % picking.state
+
+-
+  Checking the Production is in 'ready' state
+-
+  !assert {model: mrp.production, id: production_w_2tests, string: The production with 2 QC Test is not in the expected 'Ready' state!}:
+    - state == 'ready'
+
+-
+  I will Start the production
+-
+  !workflow {model: mrp.production, action: button_produce, ref: production_w_2tests}
+
+-
+  I will finalize the Production using the function 'action_produce' like
+  User's wizard
+-
+  !function {model: mrp.production, name: action_produce}:
+    - eval: "ref('production_w_2tests')"
+    - 1.0
+    - 'consume_produce'
+
+- 
+  Checking the Production is in 'Done' state
+-
+  !assert {model: mrp.production, id: production_w_2tests, string: The production is not in the expected 'Done' state!}:
+    - state == 'done'
+
+- 
+  Checking the 'Created Moves' of Production with 2 QC Test has
+  assigned Production lot and they are Inactive and in 'Pending Test' state
+-
+  !assert {model: mrp.production, id: production_w_2tests, string: The produced Lot with two Quality Test is, unexpectly, not in 'Pending Test' state or is 'Active'!}:
+    - len(move_created_ids2) == 1
+    - move_created_ids2[0].prodlot_id.state == 'pending_test'
+    - move_created_ids2[0].prodlot_id.active == False
+
+-
+  Filling up the current Quality Test with valid data and I will confirm and
+  aprove it
+-
+  !python {model: mrp.production}: |
+    import netsvc
+    
+    test_line_proxy = self.pool.get('qc.test.line')
+    wf_service = netsvc.LocalService("workflow")
+    
+    production = self.browse(cr, uid, ref('production_w_2tests'), context)
+    curr_test = production.move_created_ids2[0].prodlot_id.current_qc_test_id
+    test_line_proxy.write(cr, uid, [
+          curr_test.test_line_ids[0].id,
+        ], {
+          'actual_value_ql': ref('qc_posible_value_yes0'),
+        }, context)
+
+    wf_service.trg_validate(uid, 'qc.test', curr_test.id, 
+      'confirm', cr)
+    wf_service.trg_validate(uid, 'qc.test', curr_test.id, 
+      'approve', cr)
+
+- 
+  Checking the produced Production Lot remains in 'Pending Test' state and is
+  inactive
+-
+  !assert {model: mrp.production, id: production_w_2tests, string: The produced Lot with a Quality Test is, unexpectly, not in 'Pending Test' state or is 'Active'!}:
+    - move_created_ids2[0].prodlot_id.state == 'pending_test'
+    - move_created_ids2[0].prodlot_id.active == False
+
+-
+  Filling up the current Quality Test with valid data and I will confirm and
+  aprove it
+-
+  !python {model: mrp.production}: |
+    import netsvc
+    
+    test_line_proxy = self.pool.get('qc.test.line')
+    wf_service = netsvc.LocalService("workflow")
+    
+    production = self.browse(cr, uid, ref('production_w_2tests'), context)
+    curr_test = production.move_created_ids2[0].prodlot_id.current_qc_test_id
+    test_line_proxy.write(cr, uid, [
+          curr_test.test_line_ids[0].id,
+        ], {
+          'actual_value_ql': ref('qc_posible_value_yes0'),
+        }, context)
+
+    wf_service.trg_validate(uid, 'qc.test', curr_test.id, 
+      'confirm', cr)
+    wf_service.trg_validate(uid, 'qc.test', curr_test.id, 
+      'approve', cr)
+
+- 
+  Checking the produced Production Lot remains in 'Valid' state and is active  
+-
+  !assert {model: mrp.production, id: production_w_2tests, string: The produced Lot with a Quality Test is, unexpectly, not in 'Valid' state or is not 'Active'!}:
+    - move_created_ids2[0].prodlot_id.state == 'valid'
+    - move_created_ids2[0].prodlot_id.active == True
+
+-
+  ------  Prodlot Quality Control on Production with 1 Test END OK  ------
+-
+  !python {model: stock.picking}: |
+    print "THE END"
+
