@@ -30,8 +30,8 @@
 {
     "name": "Production Lot Quality Control - Production",
     "version": "1.0",
-    "author": "NaN Projectes de Programari Lliure S.L.",
-    "category": "Generic Modules/Quality Control",
+    "author": "NaN·tic",
+    "category": "Quality Control",
     "website": "http://www.nan-tic.com",
     "description": """
     This module adds quality control to Production Lots on production (in
