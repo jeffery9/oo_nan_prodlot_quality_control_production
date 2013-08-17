@@ -38,7 +38,7 @@
     produced Lots).
     """,
     "depends": [
-        'nan_prodlot_quality_control',
+        'oo_nan_prodlot_quality_control',
         'mrp',
     ],
     "init_xml": [],
